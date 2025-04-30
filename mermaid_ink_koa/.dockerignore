@@ -1,0 +1,7 @@
+*/*
+!.npmrc
+!README.md
+!package.json
+!pnpm-lock.yaml
+!src/*
+!LICENCE
