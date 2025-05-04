@@ -1,0 +1,3 @@
+[submodule "mermaid_unaltered"]
+	path = mermaid_unaltered
+	url = https://github.com/jihchi/mermaid.ink.git

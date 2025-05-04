@@ -5,3 +5,4 @@
 !pnpm-lock.yaml
 !src/*
 !LICENCE
+node_modules

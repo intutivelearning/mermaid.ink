@@ -37,4 +37,4 @@ COPY . ./
 RUN pnpm install -r --offline --prod
 
 CMD ["pnpm", "start"]
-EXPOSE 3000
+EXPOSE 3001
