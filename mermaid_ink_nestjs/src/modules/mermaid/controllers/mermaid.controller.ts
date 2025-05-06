@@ -1,25 +1,21 @@
 import {
-  Body,
   Controller,
   Get,
   Header,
   HttpException,
   HttpStatus,
   Param,
-  Post,
   Query,
   Res
 } from '@nestjs/common';
 import {
-  ApiBody,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
-  ApiTags
+  ApiTags,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { MermaidDiagramDto } from '../dto/mermaid-diagram.dto';
 import { OEmbedResponseDto } from '../dto/oembed-response.dto';
 import { MermaidRendererService } from '../services/mermaid-renderer.service';
 
@@ -27,118 +23,6 @@ import { MermaidRendererService } from '../services/mermaid-renderer.service';
 @Controller('mermaid')
 export class MermaidController {
   constructor(private readonly mermaidService: MermaidRendererService) {}
-
-  @Post('svg')
-  @Header('Content-Type', 'image/svg+xml')
-  @ApiOperation({ summary: 'Render Mermaid diagram as SVG (POST method)' })
-  @ApiBody({ type: MermaidDiagramDto })
-  @ApiResponse({ status: 200, description: 'Returns the rendered SVG' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering SVG' })
-  async renderSvg(
-    @Body() diagramDto: MermaidDiagramDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    try {
-      const svg = await this.mermaidService.renderSvg(diagramDto);
-      res.send(svg);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render SVG: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Get('svg')
-  @Header('Content-Type', 'image/svg+xml')
-  @ApiOperation({ summary: 'Render Mermaid diagram as SVG (GET method)' })
-  @ApiQuery({ name: 'code', description: 'Mermaid diagram code', required: true })
-  @ApiQuery({ name: 'theme', description: 'Diagram theme', required: false, enum: ['default', 'dark', 'forest', 'neutral'] })
-  @ApiQuery({ name: 'backgroundColor', description: 'Background color', required: false })
-  @ApiResponse({ status: 200, description: 'Returns the rendered SVG' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering SVG' })
-  async renderSvgGet(
-    @Query('code') code: string,
-    @Res() res: Response,
-    @Query('theme') theme: string = 'default',
-    @Query('backgroundColor') backgroundColor: string = 'white',
-  ): Promise<void> {
-    try {
-      const svg = await this.mermaidService.renderSvg({
-        code: code,
-        theme,
-        backgroundColor,
-      });
-      res.send(svg);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render SVG: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Post('img')
-  @ApiOperation({ summary: 'Render Mermaid diagram as PNG (POST method)' })
-  @ApiBody({ type: MermaidDiagramDto })
-  @ApiResponse({ status: 200, description: 'Returns the rendered PNG image' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering PNG' })
-  async renderImage(
-    @Body() diagramDto: MermaidDiagramDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    try {
-      const buffer = await this.mermaidService.renderPng(diagramDto);
-      res.set({
-        'Content-Type': 'image/png',
-        'Content-Length': buffer.length,
-      });
-      res.send(buffer);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render PNG: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Get('img')
-  @ApiOperation({ summary: 'Render Mermaid diagram as PNG (GET method)' })
-  @ApiQuery({ name: 'code', description: 'Mermaid diagram code', required: true })
-  @ApiQuery({ name: 'theme', description: 'Diagram theme', required: false, enum: ['default', 'dark', 'forest', 'neutral'] })
-  @ApiQuery({ name: 'backgroundColor', description: 'Background color', required: false })
-  @ApiQuery({ name: 'width', description: 'Width in pixels', required: false, type: Number })
-  @ApiQuery({ name: 'height', description: 'Height in pixels', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Returns the rendered PNG image' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering PNG' })
-  async renderImageGet(
-    @Query('code') code: string,
-    @Res() res: Response,
-    @Query('theme') theme: string = 'default',
-    @Query('backgroundColor') backgroundColor: string = 'white',
-    @Query('width') width?: number,
-    @Query('height') height?: number,
-  ): Promise<void> {
-    try {
-      const buffer = await this.mermaidService.renderPng({
-        code,
-        theme,
-        backgroundColor,
-        width: width ? parseInt(width.toString(), 10) : undefined,
-        height: height ? parseInt(height.toString(), 10) : undefined,
-      });
-      res.set({
-        'Content-Type': 'image/png',
-        'Content-Length': buffer.length,
-      });
-      res.send(buffer);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render PNG: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
 
   @Get('img/:encodedDiagram')
   @ApiOperation({ summary: 'Render Mermaid diagram as PNG using base64-encoded diagram in URL' })
@@ -216,72 +100,6 @@ export class MermaidController {
     } catch (error) {
       throw new HttpException(
         `Failed to render SVG from base64: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Post('pdf')
-  @Header('Content-Type', 'application/pdf')
-  @ApiOperation({ summary: 'Render Mermaid diagram as PDF (POST method)' })
-  @ApiBody({ type: MermaidDiagramDto })
-  @ApiResponse({ status: 200, description: 'Returns the rendered PDF document' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering PDF' })
-  async renderPdf(
-    @Body() diagramDto: MermaidDiagramDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    try {
-      const buffer = await this.mermaidService.renderPdf(diagramDto);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Length': buffer.length,
-        'Content-Disposition': 'inline; filename=diagram.pdf',
-      });
-      res.send(buffer);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render PDF: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Get('pdf')
-  @Header('Content-Type', 'application/pdf')
-  @ApiOperation({ summary: 'Render Mermaid diagram as PDF (GET method)' })
-  @ApiQuery({ name: 'code', description: 'Mermaid diagram code', required: true })
-  @ApiQuery({ name: 'theme', description: 'Diagram theme', required: false, enum: ['default', 'dark', 'forest', 'neutral'] })
-  @ApiQuery({ name: 'backgroundColor', description: 'Background color', required: false })
-  @ApiQuery({ name: 'width', description: 'Width in pixels', required: false, type: Number })
-  @ApiQuery({ name: 'height', description: 'Height in pixels', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Returns the rendered PDF document' })
-  @ApiResponse({ status: 500, description: 'Server error while rendering PDF' })
-  async renderPdfGet(
-    @Query('code') code: string,
-    @Res() res: Response,
-    @Query('theme') theme: string = 'default',
-    @Query('backgroundColor') backgroundColor: string = 'white',
-    @Query('width') width?: number,
-    @Query('height') height?: number,
-  ): Promise<void> {
-    try {
-      const buffer = await this.mermaidService.renderPdf({
-        code,
-        theme,
-        backgroundColor,
-        width: width ? parseInt(width.toString(), 10) : undefined,
-        height: height ? parseInt(height.toString(), 10) : undefined,
-      });
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Length': buffer.length,
-        'Content-Disposition': 'inline; filename=diagram.pdf',
-      });
-      res.send(buffer);
-    } catch (error) {
-      throw new HttpException(
-        `Failed to render PDF: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
