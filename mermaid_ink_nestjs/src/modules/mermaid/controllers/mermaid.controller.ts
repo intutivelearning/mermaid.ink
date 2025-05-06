@@ -105,6 +105,7 @@ export class MermaidController {
   @ApiParam({ name: 'encodedDiagram', description: 'Base64-encoded Mermaid diagram code' })
   @ApiQuery({ name: 'theme', description: 'Diagram theme', required: false, enum: ['default', 'dark', 'forest', 'neutral'] })
   @ApiQuery({ name: 'backgroundColor', description: 'Background color', required: false })
+  @ApiQuery({ name: 'bgColor', description: 'Alternative background color (hex or !named)', required: false })
   @ApiResponse({ status: 200, description: 'Returns the rendered SVG' })
   @ApiResponse({ status: 500, description: 'Server error while rendering SVG' })
   async renderSvgFromBase64(
@@ -112,21 +113,26 @@ export class MermaidController {
     @Res() res: Response,
     @Query('theme') theme: string = 'default',
     @Query('backgroundColor') backgroundColor: string = 'white',
+    @Query('bgColor') bgColor?: string,
   ): Promise<void> {
+    // bgColor logic (Koa style)
+    let finalBgColor = backgroundColor;
+    if (bgColor) {
+      const trimmed = bgColor.trim();
+      if (/^(![a-z]+)|([\da-f]{3,8})$/i.test(trimmed)) {
+        finalBgColor = trimmed.startsWith('!') ? trimmed.substring(1) : `#${trimmed}`;
+      }
+    }
     try {
-      // Decode the base64-encoded diagram
       const code = Buffer.from(encodedDiagram, 'base64').toString('utf-8');
-      
       const svg = await this.mermaidService.renderSvg({
         code,
         theme,
-        backgroundColor,
+        backgroundColor: finalBgColor,
       });
-      
       res.set({
-        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        'Cache-Control': 'public, max-age=86400',
       });
-      
       res.send(svg);
     } catch (error) {
       throw new HttpException(
