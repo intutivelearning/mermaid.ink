@@ -37,19 +37,23 @@ RUN corepack enable --install-directory /home/appuser/.npm-global/bin
 
 # Copy package files and prefetch dependencies
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm fetch --prod
+RUN pnpm fetch
 
 # Copy the rest of the application
 COPY . ./
 
-# Install dependencies offline
-RUN pnpm install --offline --prod
+# Install all dependencies (including devDependencies) for build
+RUN pnpm install --offline
+
 
 # Ensure dist is owned by appuser before build
 RUN rm -rf dist && mkdir -p dist && chown -R appuser:appgroup dist
 
 # Build the NestJS app
 RUN pnpm run build
+
+# Optionally prune devDependencies after build to keep image slim
+RUN pnpm prune --prod
 
 EXPOSE 3000
 CMD ["pnpm", "start:prod"]
