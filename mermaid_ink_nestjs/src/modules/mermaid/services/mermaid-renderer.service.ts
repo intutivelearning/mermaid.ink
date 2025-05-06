@@ -7,6 +7,9 @@ import { MermaidDiagramDto } from '../dto/mermaid-diagram.dto';
 declare global {
   interface Window {
     renderMermaid: () => Promise<string | boolean>;
+    App: {
+      render: (definition: string, config: any, bgColor: string, size: any) => Promise<void>;
+    };
   }
 }
 
@@ -37,46 +40,28 @@ export class MermaidRendererService {
 
   async renderSvg(diagramDto: MermaidDiagramDto): Promise<string> {
     const { code, theme = 'default', backgroundColor = 'white' } = diagramDto;
-    
     try {
       const page = await this.browser.newPage();
-      
-      // Set HTML content with the Mermaid script
-      await page.setContent(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <script type="module">
-              import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-              
-              mermaid.initialize({
-                startOnLoad: true,
-                theme: '${theme}',
-                backgroundColor: '${backgroundColor}'
-              });
-              
-              window.renderMermaid = async function() {
-                try {
-                  const { svg } = await mermaid.render('mermaid-container', \`${code.replace(/`/g, '\\`')}\`);
-                  return svg;
-                } catch (error) {
-                  console.error('Mermaid rendering error:', error);
-                  return 'Error: ' + error.message;
-                }
-              };
-            </script>
-          </head>
-          <body style="margin:0; padding:0; background: ${backgroundColor};">
-            <div id="mermaid-container"></div>
-          </body>
-        </html>
-      `);
-      
-      // Execute the renderMermaid function and get the SVG
-      const svg = await page.evaluate(() => {
-        return window.renderMermaid();
-      }) as string; // Cast to string
-      
+      // Load the static mermaid.html file served from public
+      await page.goto('http://localhost:3000/mermaid.html');
+      // Call the render function defined in mermaid.mjs
+      const svg = await page.evaluate(
+        async (definition, theme, backgroundColor) => {
+          if (!window.App || !window.App.render) {
+            throw new Error('window.App.render is not defined');
+          }
+          // Call the render function and return the SVG
+          await window.App.render(definition, { theme }, backgroundColor, {});
+          const container = document.getElementById('container');
+          if (!container) throw new Error('Container element not found');
+          const svgElement = container.querySelector('svg');
+          if (!svgElement) throw new Error('SVG element not found');
+          return svgElement.outerHTML;
+        },
+        code,
+        theme,
+        backgroundColor
+      );
       await page.close();
       return svg;
     } catch (error) {
@@ -87,71 +72,43 @@ export class MermaidRendererService {
 
   async renderPng(diagramDto: MermaidDiagramDto): Promise<Buffer> {
     const { code, theme = 'default', backgroundColor = 'white', width, height } = diagramDto;
-    
     try {
       const page = await this.browser.newPage();
-      
+      // Load the static mermaid.html file served from public
+      await page.goto('http://localhost:3000/mermaid.html');
+      // Call the render function defined in mermaid.mjs
+      await page.evaluate(
+        async (definition, theme, backgroundColor, width, height) => {
+          if (!window.App || !window.App.render) {
+            throw new Error('window.App.render is not defined');
+          }
+          const size: { width?: number; height?: number } = {};
+          if (width) size.width = width;
+          if (height) size.height = height;
+          await window.App.render(definition, { theme }, backgroundColor, size);
+        },
+        code,
+        theme,
+        backgroundColor,
+        width,
+        height
+      );
+      // Set viewport if width/height provided
       if (width && height) {
         await page.setViewport({ width, height });
       }
-      
-      // Set HTML content with the Mermaid script
-      await page.setContent(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <script type="module">
-              import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-              
-              mermaid.initialize({
-                startOnLoad: true,
-                theme: '${theme}',
-                backgroundColor: '${backgroundColor}'
-              });
-              
-              window.renderMermaid = async function() {
-                try {
-                  const { svg } = await mermaid.render('mermaid-container', \`${code.replace(/`/g, '\\`')}\`);
-                  document.getElementById('mermaid-output').innerHTML = svg;
-                  return true;
-                } catch (error) {
-                  console.error('Mermaid rendering error:', error);
-                  return false;
-                }
-              };
-            </script>
-          </head>
-          <body style="margin:0; padding:0; background: ${backgroundColor};">
-            <div id="mermaid-container" style="display:none;"></div>
-            <div id="mermaid-output"></div>
-          </body>
-        </html>
-      `);
-      
-      // Execute the renderMermaid function
-      const success = await page.evaluate(() => {
-        return window.renderMermaid();
-      }) as boolean; // Cast to boolean
-      
-      if (!success) {
-        throw new Error('Failed to render Mermaid diagram');
-      }
-      
       // Wait for the SVG to be inserted into the DOM
-      await page.waitForSelector('#mermaid-output svg');
-      
+      await page.waitForSelector('#container svg');
       // Get the diagram element with null check
-      const element = await page.$('#mermaid-output svg');
+      const element = await page.$('#container svg');
       if (!element) {
         throw new Error('SVG element not found');
       }
-      
       // Take a screenshot
       const screenshot = await element.screenshot({
         omitBackground: backgroundColor === 'transparent',
-        type: 'png'
+        type: 'png',
       });
-      
       await page.close();
       // Convert Uint8Array to Buffer
       return Buffer.from(screenshot);

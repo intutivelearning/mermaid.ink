@@ -316,17 +316,17 @@ Content-Type: application/json
                 console.log('Original code:', cleanCode);
                 console.log('Base64 encoded:', base64Code);
                 
-                // Generate SVG URL
+                // Generate SVG URL (use path parameter)
                 const svgUrl = `${baseUrl}/mermaid/svg/${base64Code}?theme=${theme}&backgroundColor=${encodeURIComponent(backgroundColor)}`;
                 document.getElementById('svg-url').textContent = svgUrl;
                 
-                // Generate PNG URL with dimensions if provided
+                // Generate PNG URL (use path parameter)
                 let pngUrl = `${baseUrl}/mermaid/img/${base64Code}?theme=${theme}&backgroundColor=${encodeURIComponent(backgroundColor)}`;
                 if (width) pngUrl += `&width=${width}`;
                 if (height) pngUrl += `&height=${height}`;
                 document.getElementById('png-url').textContent = pngUrl;
                 
-                // Generate PDF URL with dimensions if provided
+                // Generate PDF URL (use path parameter)
                 let pdfUrl = `${baseUrl}/mermaid/pdf/${base64Code}?theme=${theme}&backgroundColor=${encodeURIComponent(backgroundColor)}`;
                 if (width) pdfUrl += `&width=${width}`;
                 if (height) pdfUrl += `&height=${height}`;
