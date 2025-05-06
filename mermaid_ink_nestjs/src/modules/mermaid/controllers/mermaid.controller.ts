@@ -31,6 +31,9 @@ export class MermaidController {
   @ApiQuery({ name: 'backgroundColor', description: 'Background color', required: false })
   @ApiQuery({ name: 'width', description: 'Width in pixels', required: false, type: Number })
   @ApiQuery({ name: 'height', description: 'Height in pixels', required: false, type: Number })
+  @ApiQuery({ name: 'scale', description: 'Scale factor (1-3, only with width or height)', required: false, type: Number })
+  @ApiQuery({ name: 'type', description: 'Output image type (jpeg, png, webp)', required: false, enum: ['jpeg', 'png', 'webp'] })
+  @ApiQuery({ name: 'bgColor', description: 'Alternative background color (hex or !named)', required: false })
   @ApiResponse({ status: 200, description: 'Returns the rendered PNG image' })
   @ApiResponse({ status: 500, description: 'Server error while rendering PNG' })
   async renderImageFromBase64(
@@ -40,29 +43,57 @@ export class MermaidController {
     @Query('backgroundColor') backgroundColor: string = 'white',
     @Query('width') width?: number,
     @Query('height') height?: number,
+    @Query('scale') scale?: number,
+    @Query('type') type?: string,
+    @Query('bgColor') bgColor?: string,
   ): Promise<void> {
+    // Validate and process parameters (Koa logic)
+    if (scale !== undefined) {
+      if (!width && !height) {
+        throw new HttpException('scale can only be set when either width or height is set', HttpStatus.BAD_REQUEST);
+      }
+      if (isNaN(scale) || scale < 1 || scale > 3) {
+        throw new HttpException('invalid scale value - must be a number between 1 and 3', HttpStatus.BAD_REQUEST);
+      }
+    }
+    let outType = 'jpeg';
+    if (type && ['jpeg', 'png', 'webp'].includes(type.toLowerCase())) {
+      outType = type.toLowerCase();
+    }
+    // bgColor logic (Koa style)
+    let finalBgColor = backgroundColor;
+    if (bgColor) {
+      const trimmed = bgColor.trim();
+      if (/^(![a-z]+)|([\da-f]{3,8})$/i.test(trimmed)) {
+        finalBgColor = trimmed.startsWith('!') ? trimmed.substring(1) : `#${trimmed}`;
+      }
+    }
+    // Apply scale to width/height
+    let scaledWidth = width;
+    let scaledHeight = height;
+    if (scale && (width || height)) {
+      if (width) scaledWidth = Math.round(width * scale);
+      if (height) scaledHeight = Math.round(height * scale);
+    }
     try {
-      // Decode the base64-encoded diagram
       const code = Buffer.from(encodedDiagram, 'base64').toString('utf-8');
-      
       const buffer = await this.mermaidService.renderPng({
         code,
         theme,
-        backgroundColor,
-        width: width ? parseInt(width.toString(), 10) : undefined,
-        height: height ? parseInt(height.toString(), 10) : undefined,
+        backgroundColor: finalBgColor,
+        width: scaledWidth,
+        height: scaledHeight,
+        type: outType,
       });
-      
       res.set({
-        'Content-Type': 'image/png',
+        'Content-Type': `image/${outType}`,
         'Content-Length': buffer.length,
-        'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        'Cache-Control': 'public, max-age=86400',
       });
-      
       res.send(buffer);
     } catch (error) {
       throw new HttpException(
-        `Failed to render PNG from base64: ${error.message}`,
+        `Failed to render image from base64: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

@@ -48,4 +48,34 @@ export class MermaidDiagramDto {
   @IsOptional()
   @IsNumber()
   height?: number;
+
+  @ApiProperty({
+    description: 'Scale factor (only valid if width or height is set, 1-3)',
+    example: 2,
+    required: false,
+    minimum: 1,
+    maximum: 3,
+  })
+  @IsOptional()
+  @IsNumber()
+  scale?: number;
+
+  @ApiProperty({
+    description: 'Output image type (jpeg, png, webp)',
+    enum: ['jpeg', 'png', 'webp'],
+    default: 'png',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['jpeg', 'png', 'webp'], { message: 'Type must be one of: jpeg, png, webp' })
+  type?: string;
+
+  @ApiProperty({
+    description: 'Alternative background color (hex or named, e.g. FF0000 or !red)',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  bgColor?: string;
 }

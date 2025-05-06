@@ -71,12 +71,17 @@ export class MermaidRendererService {
   }
 
   async renderPng(diagramDto: MermaidDiagramDto): Promise<Buffer> {
-    const { code, theme = 'default', backgroundColor = 'white', width, height } = diagramDto;
+    const {
+      code,
+      theme = 'default',
+      backgroundColor = 'white',
+      width,
+      height,
+      type = 'jpeg',
+    } = diagramDto;
     try {
       const page = await this.browser.newPage();
-      // Load the static mermaid.html file served from public
       await page.goto('http://localhost:3000/mermaid.html');
-      // Call the render function defined in mermaid.mjs
       await page.evaluate(
         async (definition, theme, backgroundColor, width, height) => {
           if (!window.App || !window.App.render) {
@@ -93,24 +98,21 @@ export class MermaidRendererService {
         width,
         height
       );
-      // Set viewport if width/height provided
       if (width && height) {
         await page.setViewport({ width, height });
       }
-      // Wait for the SVG to be inserted into the DOM
       await page.waitForSelector('#container svg');
-      // Get the diagram element with null check
       const element = await page.$('#container svg');
       if (!element) {
         throw new Error('SVG element not found');
       }
-      // Take a screenshot
+      // Use the requested type (jpeg/png/webp)
       const screenshot = await element.screenshot({
         omitBackground: backgroundColor === 'transparent',
-        type: 'png',
+        type: type as 'jpeg' | 'png' | 'webp',
+        quality: type !== 'png' ? 90 : undefined,
       });
       await page.close();
-      // Convert Uint8Array to Buffer
       return Buffer.from(screenshot);
     } catch (error) {
       this.logger.error(`Failed to render PNG: ${error.message}`);
