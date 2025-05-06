@@ -37,7 +37,7 @@
             margin-bottom: 10px;
             flex-wrap: wrap;
         }
-        select, button, input[type="number"] {
+        select, button, input[type="number"], input[type="text"], input[type="checkbox"] {
             padding: 8px 12px;
             border-radius: 4px;
             border: 1px solid #ddd;
@@ -143,7 +143,7 @@
   C -->|Two| E[iPhone]
   C -->|Three| F[fa:fa-car Car]</textarea>
             
-            <div class="controls">
+            <div class="controls" id="controls">
                 <select id="theme">
                     <option value="default">Default Theme</option>
                     <option value="dark">Dark Theme</option>
@@ -156,11 +156,24 @@
                     <option value="#f5f5f5">Light Gray Background</option>
                     <option value="#222">Dark Background</option>
                 </select>
-                <div class="dimensions">
+                <div class="dimensions" id="dimensions">
                     <label for="width">Width:</label>
                     <input type="number" id="width" min="100" max="5000" placeholder="Auto">
                     <label for="height">Height:</label>
                     <input type="number" id="height" min="100" max="5000" placeholder="Auto">
+                </div>
+                <select id="img-type" style="display:none">
+                    <option value="jpeg">JPEG (default)</option>
+                    <option value="png">PNG</option>
+                    <option value="webp">WEBP</option>
+                </select>
+                <div id="pdf-options" style="display:none; gap:10px; align-items:center;">
+                    <label for="paper">Paper:</label>
+                    <input type="text" id="paper" placeholder="a4">
+                    <label for="fit">Fit:</label>
+                    <input type="checkbox" id="fit">
+                    <label for="landscape">Landscape:</label>
+                    <input type="checkbox" id="landscape">
                 </div>
                 <button id="render-btn">Render</button>
             </div>
@@ -214,7 +227,7 @@
         
         <h3>Render as PDF</h3>
         <pre><code>GET /mermaid/pdf?code=graph%20TD%0A%20%20A%5BChristmas%5D%20--%3E%7CGet%20money%7C%20B%28Go%20shopping%29</code></pre>
-        <p>Optional query parameters: <code>theme</code>, <code>backgroundColor</code>, <code>width</code>, <code>height</code></p>
+        <p>Optional query parameters: <code>theme</code>, <code>backgroundColor</code>, <code>width</code>, <code>height</code>, <code>paper</code>, <code>fit</code>, <code>landscape</code></p>
         
         <h3>Base64 URL Method</h3>
         <p>For cleaner URLs, you can encode your diagram as base64 in the URL path:</p>
@@ -283,15 +296,34 @@ Content-Type: application/json
                     formatOptions.forEach(opt => opt.classList.remove('active'));
                     option.classList.add('active');
                     activeFormat = option.getAttribute('data-format');
+                    updateControls();
                     renderDiagram();
                 });
             });
+            
+            function updateControls() {
+                // Hide all advanced controls by default
+                document.getElementById('img-type').style.display = 'none';
+                document.getElementById('dimensions').style.display = 'none';
+                document.getElementById('pdf-options').style.display = 'none';
+                // SVG: only theme/background
+                if (activeFormat === 'svg') {
+                    // nothing extra
+                } else if (activeFormat === 'png') {
+                    document.getElementById('img-type').style.display = '';
+                    document.getElementById('dimensions').style.display = '';
+                } else if (activeFormat === 'pdf') {
+                    document.getElementById('dimensions').style.display = '';
+                    document.getElementById('pdf-options').style.display = 'flex';
+                }
+            }
             
             // Render button handling
             const renderBtn = document.getElementById('render-btn');
             renderBtn.addEventListener('click', renderDiagram);
             
             // Initial render
+            updateControls();
             renderDiagram();
             
             function renderDiagram() {
@@ -300,6 +332,10 @@ Content-Type: application/json
                 const backgroundColor = document.getElementById('background').value;
                 const width = document.getElementById('width').value || undefined;
                 const height = document.getElementById('height').value || undefined;
+                const imgType = document.getElementById('img-type').value;
+                const paper = document.getElementById('paper').value;
+                const fit = document.getElementById('fit').checked;
+                const landscape = document.getElementById('landscape').checked;
                 
                 // Update preview
                 const previewEl = document.getElementById('preview');
@@ -322,14 +358,22 @@ Content-Type: application/json
                 
                 // Generate PNG URL (use path parameter)
                 let pngUrl = `${baseUrl}/mermaid/img/${base64Code}?theme=${theme}&backgroundColor=${encodeURIComponent(backgroundColor)}`;
-                if (width) pngUrl += `&width=${width}`;
-                if (height) pngUrl += `&height=${height}`;
+                if (activeFormat === 'png') {
+                    if (width) pngUrl += `&width=${width}`;
+                    if (height) pngUrl += `&height=${height}`;
+                    if (imgType) pngUrl += `&type=${imgType}`;
+                }
                 document.getElementById('png-url').textContent = pngUrl;
                 
                 // Generate PDF URL (use path parameter)
                 let pdfUrl = `${baseUrl}/mermaid/pdf/${base64Code}?theme=${theme}&backgroundColor=${encodeURIComponent(backgroundColor)}`;
-                if (width) pdfUrl += `&width=${width}`;
-                if (height) pdfUrl += `&height=${height}`;
+                if (activeFormat === 'pdf') {
+                    if (width) pdfUrl += `&width=${width}`;
+                    if (height) pdfUrl += `&height=${height}`;
+                    if (paper) pdfUrl += `&paper=${encodeURIComponent(paper)}`;
+                    if (fit) pdfUrl += `&fit`;
+                    if (landscape) pdfUrl += `&landscape`;
+                }
                 document.getElementById('pdf-url').textContent = pdfUrl;
                 
                 // Set the PDF download link
